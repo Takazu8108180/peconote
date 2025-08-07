@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -50,6 +51,36 @@ func (m *memoryMemoRepo) List(ctx context.Context, tag *string, limit, offset in
 		return []*domain.Memo{}, total, nil
 	}
 	return filtered[offset:end], total, nil
+}
+
+func (m *memoryMemoRepo) Get(ctx context.Context, id uuid.UUID) (*domain.Memo, error) {
+	for _, me := range m.memos {
+		if me.ID == id {
+			return me, nil
+		}
+	}
+	return nil, sql.ErrNoRows
+}
+
+func (m *memoryMemoRepo) Update(ctx context.Context, memo *domain.Memo) error {
+	for i, me := range m.memos {
+		if me.ID == memo.ID {
+			memo.CreatedAt = me.CreatedAt
+			m.memos[i] = memo
+			return nil
+		}
+	}
+	return sql.ErrNoRows
+}
+
+func (m *memoryMemoRepo) Delete(ctx context.Context, id uuid.UUID) error {
+	for i, me := range m.memos {
+		if me.ID == id {
+			m.memos = append(m.memos[:i], m.memos[i+1:]...)
+			return nil
+		}
+	}
+	return sql.ErrNoRows
 }
 
 func TestListMemos_E2E(t *testing.T) {

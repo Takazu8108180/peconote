@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/peconote/peconote/internal/adapter/handler/util"
 	"github.com/peconote/peconote/internal/usecase"
 )
@@ -85,4 +86,72 @@ func (h *MemoHandler) ListMemos(c *gin.Context) {
 		c.Header("Link", link)
 	}
 	c.JSON(http.StatusOK, resp)
+}
+
+func (h *MemoHandler) GetMemo(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+	memo, err := h.usecase.GetMemo(c.Request.Context(), id)
+	if err != nil {
+		switch {
+		case errors.Is(err, usecase.ErrMemoNotFound):
+			c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
+		}
+		return
+	}
+	c.JSON(http.StatusOK, MemoItem{
+		ID:        memo.ID.String(),
+		Body:      memo.Body,
+		Tags:      memo.Tags,
+		CreatedAt: memo.CreatedAt,
+		UpdatedAt: memo.UpdatedAt,
+	})
+}
+
+func (h *MemoHandler) UpdateMemo(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+	var req MemoUpdateRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := h.usecase.UpdateMemo(c.Request.Context(), id, req.Body, req.Tags); err != nil {
+		switch {
+		case errors.Is(err, usecase.ErrInvalidMemo):
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		case errors.Is(err, usecase.ErrMemoNotFound):
+			c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
+		}
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
+func (h *MemoHandler) DeleteMemo(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+	if err := h.usecase.DeleteMemo(c.Request.Context(), id); err != nil {
+		switch {
+		case errors.Is(err, usecase.ErrMemoNotFound):
+			c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
+		}
+		return
+	}
+	c.Status(http.StatusNoContent)
 }

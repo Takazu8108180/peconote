@@ -30,6 +30,9 @@ func NewRouter(gormDB *gorm.DB, sqlxDB *sqlx.DB) *gin.Engine {
 
 	r.POST("/api/memos", memoHandler.CreateMemo)
 	r.GET("/api/memos", memoHandler.ListMemos)
+	r.GET("/api/memos/:id", memoHandler.GetMemo)
+	r.PUT("/api/memos/:id", memoHandler.UpdateMemo)
+	r.DELETE("/api/memos/:id", memoHandler.DeleteMemo)
 
 	return r
 }

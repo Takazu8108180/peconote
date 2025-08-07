@@ -11,6 +11,11 @@ type MemoCreateRequest struct {
 	Tags []string `json:"tags" binding:"max=10"`
 }
 
+type MemoUpdateRequest struct {
+	Body string   `json:"body" binding:"required,max=2000"`
+	Tags []string `json:"tags" binding:"max=10"`
+}
+
 type MemoCreateResponse struct {
 	ID string `json:"id"`
 }
