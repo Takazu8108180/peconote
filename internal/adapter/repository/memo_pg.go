@@ -2,7 +2,9 @@ package repository
 
 import (
 	"context"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	"github.com/peconote/peconote/internal/domain"
@@ -27,4 +29,40 @@ func (r *memoRepository) Create(ctx context.Context, m *domain.Memo) error {
 		"updated_at": m.UpdatedAt,
 	})
 	return err
+}
+
+func (r *memoRepository) List(ctx context.Context, tag *string, limit, offset int) ([]*domain.Memo, int, error) {
+	type memoRow struct {
+		ID        uuid.UUID      `db:"id"`
+		Body      string         `db:"body"`
+		Tags      pq.StringArray `db:"tags"`
+		CreatedAt time.Time      `db:"created_at"`
+		UpdatedAt time.Time      `db:"updated_at"`
+	}
+
+	var rows []memoRow
+	query := `SELECT id, body, tags, created_at, updated_at
+FROM memo
+WHERE ($1::text IS NULL OR $1 = ANY(tags))
+ORDER BY created_at DESC
+LIMIT $2 OFFSET $3`
+	if err := r.db.SelectContext(ctx, &rows, query, tag, limit, offset); err != nil {
+		return nil, 0, err
+	}
+	memos := make([]*domain.Memo, len(rows))
+	for i, row := range rows {
+		memos[i] = &domain.Memo{
+			ID:        row.ID,
+			Body:      row.Body,
+			Tags:      []string(row.Tags),
+			CreatedAt: row.CreatedAt,
+			UpdatedAt: row.UpdatedAt,
+		}
+	}
+	var total int
+	countQuery := `SELECT COUNT(*) FROM memo WHERE ($1::text IS NULL OR $1 = ANY(tags))`
+	if err := r.db.GetContext(ctx, &total, countQuery, tag); err != nil {
+		return nil, 0, err
+	}
+	return memos, total, nil
 }
