@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"strings"
 	"time"
@@ -14,10 +15,14 @@ import (
 
 var ErrInvalidMemo = errors.New("invalid memo")
 var ErrInvalidMemoQuery = errors.New("invalid memo query")
+var ErrMemoNotFound = errors.New("memo not found")
 
 type MemoUsecase interface {
 	CreateMemo(ctx context.Context, body string, tags []string) (uuid.UUID, error)
 	ListMemos(ctx context.Context, page, pageSize int, tag *string) ([]*domain.Memo, *model.Pagination, error)
+	GetMemo(ctx context.Context, id uuid.UUID) (*domain.Memo, error)
+	UpdateMemo(ctx context.Context, id uuid.UUID, body string, tags []string) error
+	DeleteMemo(ctx context.Context, id uuid.UUID) error
 }
 
 type memoUsecase struct {
@@ -82,4 +87,52 @@ func (u *memoUsecase) ListMemos(ctx context.Context, page, pageSize int, tag *st
 		TotalCount: total,
 	}
 	return items, p, nil
+}
+
+func (u *memoUsecase) GetMemo(ctx context.Context, id uuid.UUID) (*domain.Memo, error) {
+	memo, err := u.repo.Get(ctx, id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrMemoNotFound
+		}
+		return nil, err
+	}
+	return memo, nil
+}
+
+func (u *memoUsecase) UpdateMemo(ctx context.Context, id uuid.UUID, body string, tags []string) error {
+	if strings.TrimSpace(body) == "" || len(body) > 2000 {
+		return ErrInvalidMemo
+	}
+	if len(tags) > 10 {
+		return ErrInvalidMemo
+	}
+	for _, t := range tags {
+		if l := len(t); l < 1 || l > 30 {
+			return ErrInvalidMemo
+		}
+	}
+	memo := &domain.Memo{
+		ID:        id,
+		Body:      body,
+		Tags:      tags,
+		UpdatedAt: time.Now().UTC(),
+	}
+	if err := u.repo.Update(ctx, memo); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrMemoNotFound
+		}
+		return err
+	}
+	return nil
+}
+
+func (u *memoUsecase) DeleteMemo(ctx context.Context, id uuid.UUID) error {
+	if err := u.repo.Delete(ctx, id); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrMemoNotFound
+		}
+		return err
+	}
+	return nil
 }

@@ -3,7 +3,7 @@ info:
   title: PecoNote API
   version: 1.0.0
 paths:
-  /api/memos:
+    /api/memos:
     get:
       summary: List memos
       parameters:
@@ -40,16 +40,68 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/MemoCreateRequest'
-      responses:
-        '201':
-          description: Created
+        responses:
+          '201':
+            description: Created
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/MemoCreateResponse'
+    /api/memos/{id}:
+      get:
+        summary: Get memo
+        parameters:
+          - in: path
+            name: id
+            required: true
+            schema:
+              type: string
+        responses:
+          '200':
+            description: OK
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/MemoItem'
+          '404':
+            description: Not Found
+      put:
+        summary: Update memo
+        parameters:
+          - in: path
+            name: id
+            required: true
+            schema:
+              type: string
+        requestBody:
+          required: true
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/MemoCreateResponse'
-components:
-  schemas:
-    MemoCreateRequest:
+                $ref: '#/components/schemas/MemoUpdateRequest'
+        responses:
+          '204':
+            description: No Content
+          '400':
+            description: Bad Request
+          '404':
+            description: Not Found
+      delete:
+        summary: Delete memo
+        parameters:
+          - in: path
+            name: id
+            required: true
+            schema:
+              type: string
+        responses:
+          '204':
+            description: No Content
+          '404':
+            description: Not Found
+  components:
+    schemas:
+      MemoCreateRequest:
       type: object
       properties:
         body:
@@ -58,7 +110,17 @@ components:
           type: array
           items:
             type: string
-      required: [body]
+        required: [body]
+      MemoUpdateRequest:
+        type: object
+        properties:
+          body:
+            type: string
+          tags:
+            type: array
+            items:
+              type: string
+        required: [body]
     MemoCreateResponse:
       type: object
       properties:

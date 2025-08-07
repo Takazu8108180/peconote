@@ -21,6 +21,7 @@ type stubMemoUsecase struct {
 	err        error
 	items      []*domain.Memo
 	pagination *model.Pagination
+	memo       *domain.Memo
 }
 
 func (s *stubMemoUsecase) CreateMemo(ctx context.Context, body string, tags []string) (uuid.UUID, error) {
@@ -29,6 +30,18 @@ func (s *stubMemoUsecase) CreateMemo(ctx context.Context, body string, tags []st
 
 func (s *stubMemoUsecase) ListMemos(ctx context.Context, page, pageSize int, tag *string) ([]*domain.Memo, *model.Pagination, error) {
 	return s.items, s.pagination, s.err
+}
+
+func (s *stubMemoUsecase) GetMemo(ctx context.Context, id uuid.UUID) (*domain.Memo, error) {
+	return s.memo, s.err
+}
+
+func (s *stubMemoUsecase) UpdateMemo(ctx context.Context, id uuid.UUID, body string, tags []string) error {
+	return s.err
+}
+
+func (s *stubMemoUsecase) DeleteMemo(ctx context.Context, id uuid.UUID) error {
+	return s.err
 }
 
 func TestCreateMemoHandler_Success(t *testing.T) {
@@ -95,5 +108,98 @@ func TestListMemosHandler_BadRequest(t *testing.T) {
 	h.ListMemos(c)
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400 got %d", w.Code)
+	}
+}
+
+func TestGetMemoHandler_Success(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	id := uuid.New()
+	now := time.Now()
+	memo := &domain.Memo{ID: id, Body: "hi", Tags: []string{"t"}, CreatedAt: now, UpdatedAt: now}
+	h := NewMemoHandler(&stubMemoUsecase{memo: memo})
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Params = gin.Params{gin.Param{Key: "id", Value: id.String()}}
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/memos/"+id.String(), nil)
+	h.GetMemo(c)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 got %d", w.Code)
+	}
+	var resp MemoItem
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("invalid json: %v", err)
+	}
+	if resp.ID != id.String() {
+		t.Fatalf("unexpected id")
+	}
+}
+
+func TestGetMemoHandler_NotFound(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	id := uuid.New()
+	h := NewMemoHandler(&stubMemoUsecase{err: usecase.ErrMemoNotFound})
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Params = gin.Params{gin.Param{Key: "id", Value: id.String()}}
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/memos/"+id.String(), nil)
+	h.GetMemo(c)
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("expected 404 got %d", w.Code)
+	}
+}
+
+func TestUpdateMemoHandler_Success(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	id := uuid.New()
+	h := NewMemoHandler(&stubMemoUsecase{})
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Params = gin.Params{gin.Param{Key: "id", Value: id.String()}}
+	c.Request = httptest.NewRequest(http.MethodPut, "/api/memos/"+id.String(), bytes.NewBufferString(`{"body":"hi","tags":["t"]}`))
+	h.UpdateMemo(c)
+	if w.Code != http.StatusNoContent {
+		t.Fatalf("expected 204 got %d", w.Code)
+	}
+}
+
+func TestUpdateMemoHandler_UsecaseError(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	id := uuid.New()
+	h := NewMemoHandler(&stubMemoUsecase{err: usecase.ErrInvalidMemo})
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Params = gin.Params{gin.Param{Key: "id", Value: id.String()}}
+	c.Request = httptest.NewRequest(http.MethodPut, "/api/memos/"+id.String(), bytes.NewBufferString(`{"body":"","tags":[]}`))
+	h.UpdateMemo(c)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 got %d", w.Code)
+	}
+}
+
+func TestDeleteMemoHandler_Success(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	id := uuid.New()
+	h := NewMemoHandler(&stubMemoUsecase{})
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Params = gin.Params{gin.Param{Key: "id", Value: id.String()}}
+	c.Request = httptest.NewRequest(http.MethodDelete, "/api/memos/"+id.String(), nil)
+	h.DeleteMemo(c)
+	if w.Code != http.StatusNoContent {
+		t.Fatalf("expected 204 got %d", w.Code)
+	}
+}
+
+func TestDeleteMemoHandler_NotFound(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	id := uuid.New()
+	h := NewMemoHandler(&stubMemoUsecase{err: usecase.ErrMemoNotFound})
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Params = gin.Params{gin.Param{Key: "id", Value: id.String()}}
+	c.Request = httptest.NewRequest(http.MethodDelete, "/api/memos/"+id.String(), nil)
+	h.DeleteMemo(c)
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("expected 404 got %d", w.Code)
 	}
 }
