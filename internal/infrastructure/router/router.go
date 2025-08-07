@@ -29,6 +29,7 @@ func NewRouter(gormDB *gorm.DB, sqlxDB *sqlx.DB) *gin.Engine {
 	memoHandler := adapterhandler.NewMemoHandler(memoUsecase)
 
 	r.POST("/api/memos", memoHandler.CreateMemo)
+	r.GET("/api/memos", memoHandler.ListMemos)
 
 	return r
 }
@@ -40,6 +41,16 @@ func jsonLogger() gin.HandlerFunc {
 			"path":       param.Path,
 			"status":     param.StatusCode,
 			"latency_ms": param.Latency.Milliseconds(),
+		}
+		q := param.Request.URL.Query()
+		if v := q.Get("page"); v != "" {
+			m["page"] = v
+		}
+		if v := q.Get("page_size"); v != "" {
+			m["page_size"] = v
+		}
+		if v := q.Get("tag"); v != "" {
+			m["tag"] = v
 		}
 		if v := param.Request.Context().Value("trace_id"); v != nil {
 			if s, ok := v.(string); ok {

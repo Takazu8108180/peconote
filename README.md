@@ -47,3 +47,28 @@ Response:
 ```
 
 The `Location` header contains `/api/memos/{id}`.
+
+### List Memos
+
+`GET /api/memos`
+
+Query parameters:
+
+- `page` (default `1`)
+- `page_size` (default `20`, max `100`)
+- `tag` (optional)
+
+Example:
+
+```bash
+curl "http://localhost:8080/api/memos?page=2&page_size=10"
+```
+
+Response:
+
+```json
+{
+  "items": [{"id": "<uuid>", "body": "memo", "tags": ["tag"], "created_at": "2024-01-01T00:00:00Z", "updated_at": "2024-01-01T00:00:00Z"}],
+  "pagination": {"page": 2, "page_size": 10, "total_pages": 5, "total_count": 50}
+}
+```
